@@ -1,0 +1,15 @@
+agreementviid;string;
+alternativeid;array<struct<`type`:string,`code`:string,`sourceId`:string>>;
+usetype;string;
+validitystartdate;date;
+validityenddate;date;
+unclaimedpercentage;int;
+percentileforprioritisation;int;
+parentworkrightshareid;array<struct<`type`:string,`code`:string,`sourceId`:string>>;
+relatedparticipants;array<struct<`viId`:string,`role`:struct<`code`:string,`description`:string>,`publisherSequence`:int,`parentId`:string,`rightsId`:string,`controlledWriter`:array<struct<`viId`:string,`agreementId`:string>>,`workForHireIndicator`:boolean,`controllingOriginalPublisher`:array<struct<`viId`:string,`publisherSequence`:string,`agreementId`:string>>,`firstRecordingRefusalIndicator`:boolean>>;
+relatedwork;array<struct<`viId`:string>>;
+relatedproduct;array<struct<`viId`:string>>;
+relatedrecording;array<struct<`viId`:string>>;
+societies;struct<`performanceSociety`:struct<`code`:int,`region`:string,`description`:string>,`mechanicalSociety`:struct<`code`:int,`region`:string,`description`:string>,`synchronizationSociety`:struct<`code`:int,`region`:string,`description`:string>>;
+ownershipshare;struct<`writersShare`:double,`performanceRight`:double,`mechanicalRight`:double,`synchronizationRight`:double>;
+collectionshare;array<struct<`performanceRight`:double,`mechanicalRight`:double,`synchronizationRight`:double,`societyAssignedAgreementNumber`:string,`collectionShareTerritory`:struct<`SequenceNumber`:int,`InclusionExclusionIndicator`:string,`territory`:struct<`id`:int,`standard`:string,`code`:string,`type`:string,`name`:string>>>>;

@@ -1,0 +1,2 @@
+compositemetadata;array<struct<`sources`:array<struct<`viId`:string,`dataOwner`:string,`tenantName`:string,`revisionNumber`:string,`timestamp`:timestamp>>,`fields`:array<struct<`name`:string,`metadata`:array<struct<`methodName`:string,`methodType`:string,`version`:string,`confidence`:string,`sources`:array<struct<`viId`:string>>>>>>>>;
+current;boolean;

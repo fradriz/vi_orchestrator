@@ -1,0 +1,43 @@
+service: THIRD-PARTY-AIRFLOW-LAUNCHER
+useDotenv: true
+
+custom:
+  dotenv:
+    basePath: .
+  baseName: ${self:service}-${opt:stage}
+  triggerBucket:
+    thirdPartyJson:
+      development: third-party-source-development
+      staging: third-party-source-staging
+
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
+    - test/**
+
+provider:
+  name: aws
+  runtime:  python3.8
+  region: ${env:LOCAL_AWS_REGION, "us-east-1"}
+  memorySize: 512
+  timeout: 900
+  iam:
+    role:
+      - ${ssm:/common-services/main-lambda/role/arn}
+
+functions:
+  third-party-etl-airflow-trigger:
+    name: third_party_etl_airflow_trigger
+    handler: handler.airflow_trigger
+    description: Trigger Airflow Dag third_party_etl
+    events:
+      - s3:
+          bucket: ${self:custom.triggerBucket.thirdPartyJson.${opt:stage}}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: json/
+            - suffix: .json
+          existing: true
+
+

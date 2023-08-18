@@ -1,0 +1,110 @@
+"""
+Run Source ETL in two steps to process large amount of data.
+This is used with data providers like WCM or Un
+"""
+import os
+import pendulum
+
+from airflow import DAG
+from airflow.models import Variable
+from airflow.operators.dummy_operator import DummyOperator
+from airflow.operators.python import BranchPythonOperator, PythonOperator
+from airflow.providers.amazon.aws.operators.ecs import ECSOperator
+from airflow.contrib.sensors.emr_step_sensor import EmrStepSensor
+from airflow.contrib.operators.emr_add_steps_operator import EmrAddStepsOperator
+from airflow.contrib.operators.emr_create_job_flow_operator import EmrCreateJobFlowOperator
+from etl.common_packages.cls_params import AWSDagParams
+
+from etl.common_packages.functions import ecs_parser_two_steps, emr_parser, print_msg, check_running
+
+# Take the name of the file as the DagId
+fileName = os.path.basename(__file__).replace(".py", "")
+DAG_ID = f"cwr-{fileName}"
+
+# TODO: Add composite-source step: boostrap, add step, check step
+with DAG(
+        dag_id=DAG_ID,
+        schedule_interval=None,
+        start_date=pendulum.datetime(2021, 1, 1, tz="UTC"),
+        render_template_as_native_obj=True,
+        catchup=False
+) as dag:
+    # Getting env from Airflow Environment Variables: 'development' | 'staging'
+    # TODO: remove getting the environment from here as the best practices recommend.
+    ENVIRONMENT = Variable.get('ENVIRONMENT')
+    params = AWSDagParams(ENVIRONMENT)
+
+    get_ecs_configs = PythonOperator(
+        task_id='get_ecs_configs',
+        python_callable=ecs_parser_two_steps,
+        op_kwargs={'input_params': params},
+        depends_on_past=False,
+        dag=dag)
+
+    step1_fargate = ECSOperator(
+        task_id="step1_fargate",
+        dag=dag,
+        depends_on_past=False,
+        cluster=params.src_ecs_cluster_name,
+        task_definition=params.src_ecs_task_definition,
+        launch_type="FARGATE",
+        overrides="{{ task_instance.xcom_pull(task_ids='get_ecs_configs', key='return_value') }}",
+        awslogs_group='/ecs/cwr-job-task',
+        awslogs_stream_prefix='/ecs/cwr-etl',
+        network_configuration={
+            'awsvpcConfiguration': {
+                'subnets': params.ecs_network_subnets,
+                'securityGroups': params.ecs_security_group,
+                'assignPublicIp': 'ENABLED'
+            }
+        },
+    )
+
+    # Branch: The next task depends on the return from the python function check_running
+    check_running = BranchPythonOperator(
+        task_id='check_running',
+        python_callable=check_running
+    )
+
+    steps_running_STOP = DummyOperator(
+        task_id='steps_running_STOP'
+    )
+
+    nothing_running_continue = DummyOperator(
+        task_id='nothing_running_continue'
+    )
+
+    get_emr_configs = PythonOperator(
+        task_id='get_emr_configs',
+        python_callable=emr_parser,
+        depends_on_past=False,
+        dag=dag)
+
+    step2_EMR = EmrCreateJobFlowOperator(
+        task_id='step2_EMR',
+        job_flow_overrides="{{ task_instance.xcom_pull(task_ids='get_emr_configs', key='return_value') }}"
+    )
+
+    add_steps = EmrAddStepsOperator(
+        task_id='add_steps',
+        job_flow_id="{{ task_instance.xcom_pull(task_ids='step2_EMR', key='return_value') }}",
+        steps="{{ task_instance.xcom_pull(task_ids='get_emr_configs', key='spark_steps') }}",
+        aws_conn_id='aws_default'
+    )
+
+    check_lookup_table_step = EmrStepSensor(
+        task_id='check_lookup_table_step',
+        job_flow_id="{{ task_instance.xcom_pull('step2_EMR', key='return_value') }}",
+        step_id="{{ task_instance.xcom_pull(task_ids='add_steps', key='return_value')[0] }}",
+        aws_conn_id='aws_default',
+    )
+
+    check_etl_step = EmrStepSensor(
+        task_id='check_etl_step',
+        job_flow_id="{{ task_instance.xcom_pull('step2_EMR', key='return_value') }}",
+        step_id="{{ task_instance.xcom_pull(task_ids='add_steps', key='return_value')[1] }}",
+        aws_conn_id='aws_default',
+    )
+
+    get_ecs_configs >> step1_fargate >> check_running >> steps_running_STOP
+    get_ecs_configs >> step1_fargate >> check_running >> nothing_running_continue >> get_emr_configs >> step2_EMR >> add_steps >> check_lookup_table_step >> check_etl_step

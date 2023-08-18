@@ -1,0 +1,8 @@
+viId;string;
+standard;string;
+version;string;
+accountid;string;
+ownerid;string;
+filesource;string;
+timestamp;timestamp;
+errors;array<string>;

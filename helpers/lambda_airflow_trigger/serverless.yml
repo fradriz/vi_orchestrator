@@ -1,0 +1,43 @@
+service: AIRFLOW-LAUNCHERS
+useDotenv: true
+
+package:
+  exclude:
+    - node_modules/**
+    - venv/**
+    - test/**
+
+provider:
+  name: aws
+  runtime:  python3.8
+  region: ${env:LOCAL_AWS_REGION, "us-east-1"}
+  memorySize: 512
+  timeout: 900
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - iam:PassRole
+        - ecs:RunTask
+        - ecs:DescribeTasks
+        - ecs:DescribeTaskDefinition
+        - ec2:DescribeSecurityGroups
+        - elasticmapreduce:RunJobFlow
+        - elasticmapreduce:DescribeCluster
+        - s3:*
+        - sns:Publish
+        - lambda:InvokeAsync
+        - lambda:InvokeFunction
+        - ssm:GetParameter
+        - logs:CreateLogGroup
+        - logs:CreateLogStream
+        - logs:PutLogEvents
+        - airflow:CreateWebLoginToken
+        - airflow:CreateCliToken
+      Resource: '*'
+
+functions:
+  airflow-trigger:
+    name: airflow_trigger
+    handler: handler.airflow_trigger
+    description: Trigger Airflow Dags
+

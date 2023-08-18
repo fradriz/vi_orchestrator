@@ -1,0 +1,4 @@
+searchParams;map<string,string>;
+sourceEntity;struct<`entity`:string,`viId`:string>;
+relatedEntities;array<struct<`entity`:string,`viId`:string>>;
+targetEntity;struct<`entity`:string,`viId`:string>;
